@@ -79,9 +79,9 @@ void loop() {
   "Temperatura: " + String(temperature) + "°C\n" +
   "Vlaga: " + String(humidity) + "%\n" +
   "Tlak: " + String(pressure) + "hPa\n" +
-  "Nadmorska visina: " + String(altitude) + "m\n" +
-  "IAQ: " + String(iaq) "\n"
-  )
+  "Nadmorska visina: " + String(altitude) + "m\n" //+
+  //"IAQ: " + String(iaq) "\n"
+  );
 
   delay(1000);
 }
