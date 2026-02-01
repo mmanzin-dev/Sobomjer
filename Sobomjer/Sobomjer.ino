@@ -29,6 +29,9 @@ const char* mqttPassword = "";
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+// IAQ funckija
+
+
 void setup() {
   Serial.begin(115200);
 
@@ -62,5 +65,23 @@ void setup() {
 }
 
 void loop() {
+  // BME680 mjerenja
+  float temperature, humidity, pressure, altitude, gas;
+  int iaq; // Indoor Air Quality
 
+  temperature = bme.readTemperature();
+  humidity = bme.readHumidity();
+  pressure = bme.readPressure();
+  altitude = bme.readAltitude();
+  gas = bme.readGasResistance();
+
+  Serial.println(
+  "Temperatura: " + String(temperature) + "°C\n" +
+  "Vlaga: " + String(humidity) + "%\n" +
+  "Tlak: " + String(pressure) + "hPa\n" +
+  "Nadmorska visina: " + String(altitude) + "m\n" +
+  "IAQ: " + String(iaq) "\n"
+  )
+
+  delay(1000);
 }
