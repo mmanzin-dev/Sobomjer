@@ -5,6 +5,7 @@
 #define R_LED 12 // Crveni LED
 #define Y_LED 13 // Zuti LED
 #define G_LED 14 // Zeleni LED
+#define BUZZER 15
 
 const char* ssid = "S21FE";
 const char* password = "00000000";
@@ -15,24 +16,14 @@ const char* topic_temperature = "sobomjer/temperatura";
 const char* topic_humidity = "sobomjer/vlaga";
 const char* topic_pressure = "sobomjer/tlak";
 const char* topic_iaq = "sobomjer/iaq";
+const char* topic_buzzer = "sobomjer/buzzer";
 
 unsigned long lastPublish= 0;
 const long interval = 5000;
 
 BME680 bme;
 WiFiClient espClient;
-PubSubClient client(espClient);
-
-void setup() {
-  Serial.begin(115200);
-  bme.begin();
-  setup_wifi();
-  client.setServer(mqtt_server, 1883);
-
-  pinMode(R_LED, OUTPUT);
-  pinMode(Y_LED, OUTPUT);
-  pinMode(G_LED, OUTPUT);
-}
+PubSubClient mqttClient(espClient);
 
 void setup_wifi() {
   delay(10);
@@ -53,17 +44,44 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Spajanje na MQTT broker.. ");
-    String clientId = "ESP8266Client-";
-    clientId += String(random(0xffff), HEX);
+void process_message(char* topic, byte* content, unsigned int length) {
+  String received_message = "";
+  Serial.print("Poruka je stigla na MQTT temu: ");
+  Serial.println(topic);
 
-    if (client.connect(clientId.c_str(), mqtt_user, mqtt_password)) {
+  for (unsigned int i = 0; i < length; i++) {
+    received_message += (char)content[i];
+  }
+
+  Serial.print("Sadrzaj poruke: ");
+  Serial.println(received_message);
+
+  // Obrada poruke
+  if (String(topic) == topic_buzzer) {
+    if (received_message == "1" || received_message == "ON" || received_message == "UKLJUCI") {
+      digitalWrite(BUZZER, HIGH);
+      Serial.println("Buzzer ON");
+    } else if (received_message == "0" || received_message == "OFF" || received_message == "ISKLJUCI") {
+      digitalWrite(BUZZER, LOW);
+      Serial.println("Buzzer OFF");
+    }
+  }
+}
+
+void reconnect() {
+  while (!mqttClient.connected()) {
+    Serial.print("Spajanje na MQTT broker.. ");
+    
+    String clientId = "ESP8266Client-8400";
+
+    if (mqttClient.connect(clientId.c_str(), mqtt_user, mqtt_password)) {
       Serial.println("povezan");
+      mqttClient.subscribe(topic_buzzer);
+      Serial.print("Uspjesno pretplacen na temu: ");
+      Serial.println(topic_buzzer);
     } else {
       Serial.print("ERROR, rc=");
-      Serial.println(client.state());
+      Serial.println(mqttClient.state());
       delay(5000);
     }
   }
@@ -119,12 +137,31 @@ void updateLED(int iaq) {
   }
 }
 
+void setup() {
+  Serial.begin(115200);
+  bme.begin();
+  setup_wifi();
+  mqttClient.setServer(mqtt_server, 1883);
+  mqttClient.setCallback(process_message);
+
+  pinMode(R_LED, OUTPUT);
+  pinMode(Y_LED, OUTPUT);
+  pinMode(G_LED, OUTPUT);
+
+  pinMode(BUZZER, OUTPUT);
+
+  Serial.println("BUZZER TEST");
+  digitalWrite(BUZZER, HIGH);
+  delay(500);  // Drži 1 sekundu
+  digitalWrite(BUZZER, LOW);
+}
+
 void loop() {
-  if (!client.connected()) {
+  if (!mqttClient.connected()) {
     reconnect();
   }
   
-  client.loop();
+  mqttClient.loop();
 
   unsigned long now = millis();
   if (now - lastPublish >= interval) {
@@ -173,10 +210,10 @@ void loop() {
     Serial.println(iaqStr);
 
     // MQTT
-    client.publish(topic_temperature, temperatureStr.c_str());
-    client.publish(topic_humidity, humidityStr.c_str());
-    client.publish(topic_pressure, pressureStr.c_str());
-    client.publish(topic_iaq, iaqStr.c_str());
+    mqttClient.publish(topic_temperature, temperatureStr.c_str());
+    mqttClient.publish(topic_humidity, humidityStr.c_str());
+    mqttClient.publish(topic_pressure, pressureStr.c_str());
+    mqttClient.publish(topic_iaq, iaqStr.c_str());
 
     Serial.println("Poslano na MQTT");
   }
