@@ -1,4 +1,6 @@
 #include <BME680-SOLDERED.h>
+#include <PCF85063A-SOLDERED.h>
+#include <OLED-Display-SOLDERED.h>
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
