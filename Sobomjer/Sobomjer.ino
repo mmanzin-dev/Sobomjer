@@ -17,13 +17,14 @@ const char* topic_pressure = "sobomjer/tlak";
 const char* topic_gas = "sobomjer/otpor-plin";
 const char* topic_iaq = "sobomjer/iaq";
 const char* topic_format = "sobomjer/format";
-const char* topic_buzzer = "sobomjer/buzzer"; 
+const char* topic_buzzer = "sobomjer/buzzer";
 
 unsigned long lastPublish = 0;
 const long interval = 5000; // 5s publish delay
 
 const float temp_offset = -4.0;
-const float hum_offset = 10.0; 
+const float hum_offset = 10.0;
+String buzzer = "0";
 
 BME680 bme;
 PCF85063A rtc;
@@ -65,9 +66,11 @@ void process_message(char* topic, byte* content, unsigned int length) {
   // Obrada poruke
   if (String(topic) == topic_buzzer) {
     if (received_message == "1" || received_message == "ON" || received_message == "UKLJUCI") {
+      buzzer = "1";
       digitalWrite(BUZZER, HIGH);
       Serial.println("Buzzer ON");
     } else if (received_message == "0" || received_message == "OFF" || received_message == "ISKLJUCI") {
+      buzzer = "0";
       digitalWrite(BUZZER, LOW);
       Serial.println("Buzzer OFF");
     }
@@ -182,7 +185,11 @@ String getTimestamp() {
   uint16_t year = rtc.getYear();
 
   String timestamp = "";
-  timestamp += year;
+
+  if (day < 10) {
+    timestamp += "0";
+  }
+  timestamp += day;
   timestamp += "-";
 
   if (month < 10) {
@@ -191,11 +198,8 @@ String getTimestamp() {
   timestamp += month;
   timestamp += "-";
 
-  if (day < 10) {
-    timestamp += "0";
-  }
-  timestamp += day;
-  timestamp += "T";
+  timestamp += year;
+  timestamp += ";";
 
   if (hours < 10) {
     timestamp += "0";
@@ -288,6 +292,10 @@ void setup() {
   digitalWrite(BUZZER, HIGH);
   delay(500); // Ukljuci 1 sekundu
   digitalWrite(BUZZER, LOW);
+
+  // Spaja se na MQTT server i objavljuje buzzer topic
+  reconnect();
+  mqttClient.publish(topic_buzzer, buzzer.c_str());
 }
 
 void loop() {
@@ -325,7 +333,7 @@ void loop() {
     String iaqStr = String(iaq);
 
     String timestampStr = getTimestamp();
-    String format = timestampStr + ";" + temperatureStr + ";" + humidityStr + ";" + pressureStr + ";" + gasStr + ";" + iaqStr;
+    String format = timestampStr + ";" + temperatureStr + ";" + humidityStr + ";" + pressureStr + ";" + gasStr + ";" + iaqStr + ";" + buzzer;
 
     displayInfo(temperature, humidity, pressure, gas, iaq);
 
@@ -354,13 +362,16 @@ void loop() {
     Serial.print("IAQ: ");
     Serial.println(iaqStr);
 
+    Serial.print("Buzzer: ");
+    Serial.println(buzzer);
+
     // MQTT
     // ODBACITI PRVIH 10 MJERENJA (KALIBRACIJA SENSORA)
     mqttClient.publish(topic_temperature, temperatureStr.c_str());
     mqttClient.publish(topic_humidity, humidityStr.c_str());
     mqttClient.publish(topic_pressure, pressureStr.c_str());
-    mqttClient.publish(topic_iaq, iaqStr.c_str());
     mqttClient.publish(topic_gas, gasStr.c_str());
+    mqttClient.publish(topic_iaq, iaqStr.c_str());
     mqttClient.publish(topic_format, format.c_str());
 
     Serial.println("Poslano na MQTT");
