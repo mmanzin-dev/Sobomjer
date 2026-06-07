@@ -6,6 +6,7 @@
 
 #define BUZZER 15
 
+
 const char* ssid = "S21FE";
 const char* password = "00000000";
 const char* mqtt_server = "mqtt.mononetz.com";
@@ -96,26 +97,35 @@ void reconnect() {
   }
 }
 
-// Kalibrirati ovo, previsoko je
-int calculateIAQ(float humidity, float gas) {
+int calculateIAQ(float temperature, float humidity, float gas) {
+  float temperatureScore = 0;
   float humidityScore = 0;
   float gasScore = 0;
   
-  // dodati tempScore penal bodove, 100 pts?
-
-  if (humidity >= 30 && humidity <= 70) {
-    humidityScore = 0;
-  } else if (humidity < 30) {
-    humidityScore = (30 - humidity) * 2.5; // ako 20%, 10 * 2.5 = 25 pts
+  if (temperature >= 20 && temperature <= 24) {
+    temperatureScore = 0;
+  } else if (temperature < 20) {
+    temperatureScore = (20 - temperature) * 1.5;
   } else {
-    humidityScore = (humidity - 70) * 1.0; // ako 80%, 10 * 1.0 = 10 pts
+    temperatureScore = (temperature - 24) * 2.5;
+  }
+  if (temperatureScore > 50) {
+    temperatureScore = 50;
+  }
+
+  if (humidity >= 40 && humidity <= 60) {
+    humidityScore = 0;
+  } else if (humidity < 40) {
+    humidityScore = (40 - humidity) * 1.5;
+  } else {
+    humidityScore = (humidity - 60) * 2.0;
   }
   if (humidityScore > 50) {
-    humidityScore = 50; // 50 pts max
+    humidityScore = 50;
   }
   
-  float cleanAir = 120000; // ohm
-  float dirtyAir = 70000; // ohm, kalibrirati tijekom 3d printanja
+  float cleanAir = 2500; // mOhm
+  float dirtyAir = 800; // mOhm
   
   if (gas > cleanAir) {
     gas = cleanAir;
@@ -125,10 +135,9 @@ int calculateIAQ(float humidity, float gas) {
     gas = dirtyAir;
   }
   
-  // 450 pts max, smanjiti na 350?
-  gasScore = ((cleanAir - gas) / (cleanAir - dirtyAir)) * 450; // prosjecan zrak: (120000 - 90000) / (120000 - 70000) * 450 = 270 pts
-  
-  int iaq = (int)(gasScore + humidityScore);
+  gasScore = ((cleanAir - gas) / (cleanAir - dirtyAir)) * 400; // prosjecan zrak: (2500 - 1800) / (2500 - 800) * 400 = 164 pts
+
+  int iaq = (int)(gasScore + temperatureScore + humidityScore);
   
   return iaq;
 }
@@ -140,6 +149,22 @@ void getTime() {
   uint8_t day = rtc.getDay();
   uint8_t month = rtc.getMonth();
   uint16_t year = rtc.getYear();
+
+  Serial.print("Datum: ");
+  if (day < 10) {
+    Serial.print("0");
+  }
+  Serial.print(day); 
+  Serial.print(".");
+
+  if (month < 10) {
+    Serial.print("0");
+  }
+  Serial.print(month);
+  Serial.print(".");
+
+  Serial.print(year);
+  Serial.println(".");
 
   Serial.print("Vrijeme: ");
   if (hours < 10) {
@@ -158,22 +183,6 @@ void getTime() {
     Serial.print("0");
   }
   Serial.println(seconds);
-
-  Serial.print("Datum: ");
-  if (day < 10) {
-    Serial.print("0");
-  }
-  Serial.print(day); 
-  Serial.print(".");
-
-  if (month < 10) {
-    Serial.print("0");
-  }
-  Serial.print(month);
-  Serial.print(".");
-
-  Serial.print(year);
-  Serial.println(".");
 }
 
 String getTimestamp() {
@@ -234,35 +243,50 @@ void displayInfo(float temperature, float humidity, float pressure, float gas, i
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
 
-  display.print("Vrijeme: ");
-  display.print(hours); 
-  display.print(":");
-  display.print(minutes); 
-  display.print(":");
-  display.println(seconds);
-
   display.print("Datum: ");
-  display.print(day); 
+  if (day < 10) {
+    display.print("0");
+  }
+  display.print(day);
   display.print(".");
-  display.print(month); 
+  if (month < 10) {
+    display.print("0");
+  }
+  display.print(month);
   display.print(".");
   display.println(year);
 
+  display.print("Vrijeme: ");
+  if (hours < 10) {
+    display.print("0");
+  }
+  display.print(hours);
+  display.print(":");
+  if (minutes < 10) {
+    display.print("0");
+  }
+  display.print(minutes);
+  display.print(":");
+  if (seconds < 10) {
+    display.print("0");
+  }
+  display.println(seconds);
+
   display.print("Temp: ");
-  display.print(temperature);
+  display.print(temperature, 1);
   display.println(" C");
 
   display.print("Vlaga: ");
-  display.print(humidity);
+  display.print(humidity, 0);
   display.println(" %");
 
   display.print("Tlak: ");
-  display.print(pressure);
+  display.print(pressure, 0);
   display.println(" hPa");
 
-  display.print("Otpor plina: ");
-  display.print(gas);
-  display.println(" ohm");
+  display.print("Otpor: ");
+  display.print(gas, 0);
+  display.println(" mOhm");
 
   display.print("IAQ: ");
   display.println(iaq);
@@ -290,7 +314,7 @@ void setup() {
 
   Serial.println("BUZZER TEST");
   digitalWrite(BUZZER, HIGH);
-  delay(500); // Ukljuci 1 sekundu
+  delay(500);
   digitalWrite(BUZZER, LOW);
 
   // Spaja se na MQTT server i objavljuje buzzer topic
@@ -312,7 +336,7 @@ void loop() {
     float temperature = bme.readTemperature();
     float humidity = bme.readHumidity();
     float pressure = bme.readPressure();
-    float gas = bme.readGasResistance() * 100.0; // Originalno mOhm, pretvoreno u ohm
+    float gas = bme.readGasResistance(); // mOhm
     int iaq = 0;
 
     if (isnan(temperature) || isnan(humidity) || isnan(pressure) || isnan(gas)) {
@@ -320,11 +344,11 @@ void loop() {
       return;
     }
 
-    // Korekcija temperature i vlage, kalibrirano uz pomoc Xiaomi Mi 3 Mini stanice
+    // Korekcija temperature i vlage
     temperature = temperature + temp_offset;
     humidity = humidity + hum_offset;
 
-    iaq = calculateIAQ(humidity, gas);
+    iaq = calculateIAQ(temperature, humidity, gas);
 
     String temperatureStr = String(temperature);
     String humidityStr = String(humidity);
@@ -345,7 +369,7 @@ void loop() {
 
     Serial.print("Temperatura: ");
     Serial.print(temperatureStr);
-    Serial.println(" C");
+    Serial.println(" °C");
 
     Serial.print("Vlaga: ");
     Serial.print(humidityStr);
@@ -357,7 +381,7 @@ void loop() {
 
     Serial.print("Otpor plina: ");
     Serial.print(gasStr);
-    Serial.println(" ohm");
+    Serial.println(" mOhm");
 
     Serial.print("IAQ: ");
     Serial.println(iaqStr);
@@ -366,7 +390,6 @@ void loop() {
     Serial.println(buzzer);
 
     // MQTT
-    // ODBACITI PRVIH 10 MJERENJA (KALIBRACIJA SENSORA)
     mqttClient.publish(topic_temperature, temperatureStr.c_str());
     mqttClient.publish(topic_humidity, humidityStr.c_str());
     mqttClient.publish(topic_pressure, pressureStr.c_str());
