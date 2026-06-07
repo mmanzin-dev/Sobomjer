@@ -6,7 +6,6 @@
 
 #define BUZZER 15
 
-
 const char* ssid = "S21FE";
 const char* password = "00000000";
 const char* mqtt_server = "mqtt.mononetz.com";
@@ -124,7 +123,7 @@ int calculateIAQ(float temperature, float humidity, float gas) {
     humidityScore = 50;
   }
   
-  float cleanAir = 2500; // mOhm
+  float cleanAir = 3300; // mOhm
   float dirtyAir = 800; // mOhm
   
   if (gas > cleanAir) {
