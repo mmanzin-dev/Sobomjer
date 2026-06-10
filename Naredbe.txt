@@ -1,0 +1,42 @@
+Debian12 server
+
+Mosquitto MQTT server
+sudo apt update
+sudo apt install mosquitto mosquitto-clients
+sudo nano /etc/mosquitto/mosquitto.conf
+sudo mosquitto_passwd -c /etc/mosquitto/passwd sobomjer
+sudo chown -R mosquitto:mosquitto /etc/mosquitto/mosquitto.conf
+sudo chown -R mosquitto:mosquitto /var/log/mosquitto
+sudo systemctl restart mosquitto
+sudo systemctl status mosquitto
+
+Apache2
+sudo apt install apache2
+cd /var/www/html
+sudo rm index.html
+sudo nano index.html
+sudo systemctl restart apache2
+sudo systemctl status apache2
+
+Python3
+sudo apt install python3
+sudo apt install python3-paho-mqtt
+sudo apt install python3-flask
+sudo apt install python3-flask-cors
+
+JSON perm
+sudo chown -R $USER:www-data /var/www/html
+sudo chmod -R 775 /var/www/html
+
+Python3 running
+chmod +x sobomjer.py
+chmod +x sobomjerApi.py
+python3 sobomjer.py
+python3 sobomjerApi.py
+
+SQLite
+sudo apt update
+sudo apt install sqlite3
+sqlite3 sobomjer.db
+.tables
+SELECT * FROM mjerenja;
