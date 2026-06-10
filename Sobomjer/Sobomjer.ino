@@ -300,8 +300,8 @@ void setup() {
 
   rtc.begin();
   // RTC vrijeme kalibracija
-  // rtc.setTime(0, 10, 0);
-  // rtc.setDate(1, 26, 5, 2026);
+  //rtc.setTime(8, 55, 0);
+  //rtc.setDate(2, 9, 6, 2026);
   
   display.begin();
   
