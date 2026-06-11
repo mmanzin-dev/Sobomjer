@@ -10,6 +10,7 @@
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { 
             background-color: #f8f9fa; 
@@ -24,6 +25,14 @@
             text-align: center;
         }
         
+        .chart-card {
+            border-radius: 15px;
+            box-shadow: 0 4px 8px grey;
+            background: white;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
         .value {
             font-size: 3em;
             font-weight: bold;
@@ -37,6 +46,7 @@
 
         .label-text { 
             font-size: 1.2em;
+            text-align: center;
             text-transform: uppercase;
             letter-spacing: 1px;
             color: grey;
@@ -47,7 +57,7 @@
 <body>
 <div class="container">
     <h1 class="text-center">Sobomjer</h1>
-    <p class="text-center text-muted mb-2">Podaci se osvježavaju svakih 5 sekundi.</p>
+    <p class="text-center text-muted">Podaci se osvježavaju svakih 5 sekundi.</p>
     <div class="row justify-content-center">
         <div class="col-md-5 mt-4">
             <div class="senzor">
@@ -102,25 +112,165 @@
             </div>
         </div>
     </div>
+
+    <h2 class="text-center mt-4">Povijest mjerenja</h2>
+    <p class="text-center text-muted">Grafovi prikazuju mjerenja prošlog dana</p>
+    <div class="row justify-content-center">
+        <div class="col-md-5 mt-4">
+            <div class="chart-card">
+                <div class="label-text mb-2">Temperatura</div>
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+        <div class="col-md-5 mt-4">
+            <div class="chart-card">
+                <div class="label-text mb-2">Vlažnost</div>
+                <canvas id="humChart"></canvas>
+            </div>
+        </div>
+        <div class="col-md-5 mt-4">
+            <div class="chart-card">
+                <div class="label-text mb-2">Otpor plina</div>
+                <canvas id="gasChart"></canvas>
+            </div>
+        </div>
+        <div class="col-md-5 mt-4 mb-4">
+            <div class="chart-card">
+                <div class="label-text mb-2">Kvaliteta zraka</div>
+                <canvas id="iaqChart"></canvas>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
+    const API_URL = "http://sobomjer.mononetz.com:5000";
+    let tempChart, humChart, gasChart, iaqChart;
+
     async function fetchData() {
-        const API_URL = "http://sobomjer.mononetz.com:5000/latest";
-        const response = await fetch(API_URL);
+        const response = await fetch(API_URL + "/latest");
         const data = await response.json();
 
-        document.getElementById('date').innerText = data.datum;
-        document.getElementById('time').innerText = data.vrijeme;
-        document.getElementById('temp').innerText = data.temperatura.toFixed(0);
-        document.getElementById('hum').innerText = data.vlaga.toFixed(0);
-        document.getElementById('pres').innerText = data.tlak.toFixed(0);
-        document.getElementById('gas').innerText = data.plin.toFixed(0);
-        document.getElementById('iaq').innerText = data.iaq;
-        document.getElementById('buzz').innerText = (data.buzzer === 1) ? "ON" : "OFF";
+        document.getElementById("date").innerText = data.datum;
+        document.getElementById("time").innerText = data.vrijeme;
+        document.getElementById("temp").innerText = data.temperatura.toFixed(0);
+        document.getElementById("hum").innerText = data.vlaga.toFixed(0);
+        document.getElementById("pres").innerText = data.tlak.toFixed(0);
+        document.getElementById("gas").innerText = data.plin.toFixed(0);
+        document.getElementById("iaq").innerText = data.iaq;
+        document.getElementById("buzz").innerText = (data.buzzer === 1) ? "ON" : "OFF";
+    }
+
+    async function fetchDaily() {
+        const response = await fetch(API_URL + "/daily");
+        const daily = await response.json();
+
+        if (daily.length === 0) {
+            return;
+        }
+
+        const label = daily.map(row => row.vrijeme);
+        const temp = daily.map(row => row.temperatura);
+        const hum = daily.map(row => row.vlaga);
+        const gas = daily.map(row => row.plin);
+        const iaq = daily.map(row => row.iaq);
+
+        if (tempChart) {
+            tempChart.destroy();
+        }
+        if (humChart) {
+            humChart.destroy();
+        }
+        if (gasChart) {
+            gasChart.destroy();
+        }
+        if (iaqChart) {
+            iaqChart.destroy();
+        }
+
+        const graphOptions = {
+            responsive: true,
+            scales: {
+                x: {
+                    ticks: {display: false},
+                    grid: {display: false}
+                },
+                y: {
+                    grid: {display: false}
+                }
+            },
+            plugins: {
+                legend: {display: false}
+            }
+        };
+
+        const tempCtx = document.getElementById("tempChart").getContext("2d");
+        tempChart = new Chart(tempCtx, {
+            type: "line",
+            data: {
+                labels: label,
+                datasets: [{
+                    label: "Temperatura",
+                    data: temp,
+                    borderColor: "red",
+                    borderWidth: 2,
+                    pointRadius: 0
+                }]
+            },
+            options: graphOptions
+        });
+
+        const humCtx = document.getElementById("humChart").getContext("2d");
+        humChart = new Chart(humCtx, {
+            type: "line",
+            data: {
+                labels: label,
+                datasets: [{
+                    label: "Vlažnost",
+                    data: hum,
+                    borderColor: "blue",
+                    borderWidth: 2,
+                    pointRadius: 0
+                }]
+            },
+            options: graphOptions
+        });
+
+        const gasCtx = document.getElementById("gasChart").getContext("2d");
+        gasChart = new Chart(gasCtx, {
+            type: "line",
+            data: {
+                labels: label,
+                datasets: [{
+                    label: "Otpor plina",
+                    data: gas,
+                    borderColor: "green",
+                    borderWidth: 2,
+                    pointRadius: 0
+                }]
+            },
+            options: graphOptions
+        });
+
+        const iaqCtx = document.getElementById("iaqChart").getContext("2d");
+        iaqChart = new Chart(iaqCtx, {
+            type: "line",
+            data: {
+                labels: label,
+                datasets: [{
+                    label: "IAQ",
+                    data: iaq,
+                    borderColor: "purple",
+                    borderWidth: 2,
+                    pointRadius: 0
+                }]
+            },
+            options: graphOptions
+        });
     }
 
     fetchData();
+    fetchDaily();
     setInterval(fetchData, 5000);
 </script>
 </body>
