@@ -130,8 +130,8 @@
         </div>
         <div class="col-md-5 mt-4">
             <div class="chart-card">
-                <div class="label-text mb-2">Otpor plina</div>
-                <canvas id="gasChart"></canvas>
+                <div class="label-text mb-2">Tlak</div>
+                <canvas id="presChart"></canvas>
             </div>
         </div>
         <div class="col-md-5 mt-4 mb-4">
@@ -145,7 +145,7 @@
 
 <script>
     const API_URL = "http://sobomjer.mononetz.com:5000";
-    let tempChart, humChart, gasChart, iaqChart;
+    let tempChart, humChart, presChart, iaqChart;
 
     async function fetchData() {
         const response = await fetch(API_URL + "/latest");
@@ -172,7 +172,7 @@
         const label = daily.map(row => row.vrijeme);
         const temp = daily.map(row => row.temperatura);
         const hum = daily.map(row => row.vlaga);
-        const gas = daily.map(row => row.plin);
+        const pres = daily.map(row => row.tlak);
         const iaq = daily.map(row => row.iaq);
 
         if (tempChart) {
@@ -181,8 +181,8 @@
         if (humChart) {
             humChart.destroy();
         }
-        if (gasChart) {
-            gasChart.destroy();
+        if (presChart) {
+            presChart.destroy();
         }
         if (iaqChart) {
             iaqChart.destroy();
@@ -236,14 +236,14 @@
             options: graphOptions
         });
 
-        const gasCtx = document.getElementById("gasChart").getContext("2d");
-        gasChart = new Chart(gasCtx, {
+        const presCtx = document.getElementById("presChart").getContext("2d");
+        presChart = new Chart(presCtx, {
             type: "line",
             data: {
                 labels: label,
                 datasets: [{
                     label: "Otpor plina",
-                    data: gas,
+                    data: pres,
                     borderColor: "green",
                     borderWidth: 2,
                     pointRadius: 0

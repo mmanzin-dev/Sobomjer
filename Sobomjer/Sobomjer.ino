@@ -123,8 +123,8 @@ int calculateIAQ(float temperature, float humidity, float gas) {
     humidityScore = 50;
   }
   
-  float cleanAir = 3300; // mOhm
-  float dirtyAir = 800; // mOhm
+  float cleanAir = 4000; // mOhm
+  float dirtyAir = 1000; // mOhm
   
   if (gas > cleanAir) {
     gas = cleanAir;
@@ -134,7 +134,7 @@ int calculateIAQ(float temperature, float humidity, float gas) {
     gas = dirtyAir;
   }
   
-  gasScore = ((cleanAir - gas) / (cleanAir - dirtyAir)) * 400; // prosjecan zrak: (2500 - 1800) / (2500 - 800) * 400 = 164 pts
+  gasScore = ((cleanAir - gas) / (cleanAir - dirtyAir)) * 400; // prosjecan zrak: (4000 - 2500) / (4000 - 1000) * 400 = 200 pts
 
   int iaq = (int)(gasScore + temperatureScore + humidityScore);
   
@@ -293,6 +293,65 @@ void displayInfo(float temperature, float humidity, float pressure, float gas, i
   display.display();
 }
 
+bool rtcCheck() {
+  uint8_t hours = rtc.getHour();
+  uint8_t minutes = rtc.getMinute();
+  uint8_t seconds = rtc.getSecond();
+  uint8_t day = rtc.getDay();
+  uint8_t month = rtc.getMonth();
+  uint16_t year = rtc.getYear();
+
+  if (day < 1 || day > 31) { 
+    return false;
+  }
+
+  if (month < 1 || month > 12) {
+    return false;
+  }
+
+  if (year < 2026 || year > 2100) {
+    return false;
+  }
+
+  if (hours > 23) {
+    return false;
+  }
+
+  if (minutes > 59) {
+    return false;
+  }
+
+  if (seconds > 59) {
+    return false;
+  }
+
+  return true;
+}
+
+bool measurementCheck(float temperature, float humidity, float pressure, float gas) {
+  if (temperature < -40 || temperature > 85) {
+    Serial.println("Vrijednost temperature nije ispravan");
+    return false;
+  }
+
+  if (humidity < 0 || humidity > 100) {
+    Serial.println("Vrijednost vlage nije ispravan");
+    return false;
+  }
+
+  if (pressure < 900 || pressure > 1100) {
+    Serial.println("Vrijednost tlaka nije ispravan");
+    return false;
+  }
+
+  if (gas < 100 || gas > 5000) {
+    Serial.println("Vrijednost otpora plina nije ispravan");
+    return false;
+  }
+
+  return true;
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -346,6 +405,19 @@ void loop() {
     // Korekcija temperature i vlage
     temperature = temperature + temp_offset;
     humidity = humidity + hum_offset;
+
+    // Provjera izmjerenih vrijednosti da ne salje nerealna mjerenja u bazu
+    if (rtcCheck() == false) {
+      Serial.println("RTC modul krivo mjeri vrijeme");
+      Serial.println("Izmjeniti bateriju");
+      return;
+    }
+
+    if (measurementCheck(temperature, humidity, pressure, gas) == false) {
+      Serial.println("BME680 senzor krivo mjeri vrijednosti");
+      Serial.println("Provjeriti zice");
+      return;
+    }
 
     iaq = calculateIAQ(temperature, humidity, gas);
 
