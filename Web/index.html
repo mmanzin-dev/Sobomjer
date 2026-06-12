@@ -200,7 +200,13 @@
                 }
             },
             plugins: {
-                legend: {display: false}
+                legend: {display: false},
+                tooltip: {enabled: true, mode: 'nearest', intersect: false}
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
             }
         };
 
